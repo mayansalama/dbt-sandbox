@@ -2,7 +2,7 @@ import sys
 import random
 import faker
 
-from dummy_data import DummyStarSchema
+from dummy_star_schema import DummyStarSchema
 
 fake = faker.Faker()
 
