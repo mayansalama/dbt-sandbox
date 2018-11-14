@@ -2,10 +2,20 @@ import os
 import uuid
 import random
 import csv
+import json
 import copy
+from datetime import datetime, date
 from typing import Dict
 
 import networkx
+
+
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError("Type %s not serializable" % type(obj))
 
 
 class Multi:
@@ -168,3 +178,12 @@ class DummyStarSchema:
                 for rows in uids.values():
                     to_write = [row.values() for row in rows]
                     wr.writerows(to_write)
+
+    def to_json(self, folder):
+        if folder and not os.path.exists(folder):
+            os.makedirs(folder)
+
+        for name, uids in self.datasets.items():
+            with open((folder + '/' if folder else '') + name + ".json", "w+") as f:
+                json_list = [row for rows in uids.values() for row in rows]
+                json.dump(json_list, f, default=json_serial)

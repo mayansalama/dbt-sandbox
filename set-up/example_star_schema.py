@@ -62,7 +62,7 @@ if __name__ == "__main__":
     arg_list = sys.argv
     arg_dict = {arg_list[i]: arg_list[i + 1] for i in range(1, len(arg_list), 2)}
 
-    num_ents = arg_dict.get("--num-entities", 30)
+    num_ents = int(arg_dict.get("--num-entities", 30))
     if num_ents > 12 ** 36:
         raise ValueError("Too many entities: this will result in id collisions")
 
@@ -96,5 +96,5 @@ if __name__ == "__main__":
     ]
 
     dummy_data = DummyStarSchema.initiate_from_entity_list(schema)
-    dummy_data.to_csv(folder)
+    dummy_data.to_json(folder)
     print("Done")
