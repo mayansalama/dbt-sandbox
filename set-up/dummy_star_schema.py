@@ -18,56 +18,81 @@ def json_serial(obj):
     raise TypeError("Type %s not serializable" % type(obj))
 
 
-class Multi:
-    def __init__(self, relation, fuzz=None, unique=None):
-        self.relation = relation
-        self.fuzz = fuzz
-        if not fuzz:
-            self.fuzz = lambda: 1
-        self.unique = unique or True
+class Relation:
+    def __init__(self, name, type=None, unique=False):
+        self.name = name
+        self.type = type or "one_to_many"
+        self.unique = bool(unique)
 
     @staticmethod
     def from_dict(dict):
-        return Multi(dict['relation'],
-                     dict.get('fuzz'),
-                     dict.get("unique"))
+        return Relation(dict['name'],
+                        dict.get('type'),
+                        dict.get("unique"))
+
+    @property
+    def id(self):
+        return self.name + "_id"
 
 
 class Entity:
-    def __init__(self, name, generator_function, num_ents, relations, multi):
+    def __init__(self, name, generator_function, num_iterations, relations, num_facts_per_iter=None):
         self.name = name
         self.gen = generator_function
-        self.num_ents = num_ents
+        self.num_iterations = num_iterations
         self.relations = relations
-        self.multi = multi
-
-    @property
-    def multi(self):
-        return self._multi
-
-    @multi.setter
-    def multi(self, val):
-        if not val:
-            self._multi = None
-        elif isinstance(val, dict):
-            self._multi = Multi.from_dict(val)
-        elif isinstance(val, list):
-            self._multi = Multi(*val)
-        elif isinstance(val, Multi):
-            self._multi = Multi
-        else:
-            raise ValueError("Unable to parse multi_depedency")
+        if not num_facts_per_iter:
+            num_facts_per_iter = 1
+        self.num_facts_per_iter = num_facts_per_iter
 
     @staticmethod
     def from_dict(dict):
         name = dict['name']
         gen = dict['generator_function']
-        num_ents = dict['num_ents']
-
+        num_iterations = dict['num_iterations']
         relations = dict.get('relations', [])
-        multi = dict.get('one_to_many')
+        num_facts_per_iter = dict.get('num_facts_per_iter')
 
-        return Entity(name, gen, num_ents, relations, multi)
+        return Entity(name, gen, num_iterations, relations, num_facts_per_iter)
+
+    @property
+    def id(self):
+        return self.name + "_id"
+
+    @property
+    def relations(self):
+        return self._relations
+
+    @relations.setter
+    def relations(self, relations):
+        self._relations = [Relation.from_dict(rel) for rel in relations]
+
+    @property
+    def one_to_many_relations(self):
+        return [rel for rel in self.relations if rel.type == "one_to_many"]
+
+    @property
+    def many_to_many_relations(self):
+        return [rel for rel in self.relations if rel.type == "many_to_many"]
+
+    @property
+    def num_facts_per_iter(self):
+        return self._num_facts_per_iter
+
+    @num_facts_per_iter.setter
+    def num_facts_per_iter(self, val):
+        if not callable(val):
+            if str(val).isnumeric():
+                val = int(float(str(val)))
+                func = lambda: val
+            else:
+                raise ValueError("Num facts per iteration must be either numeric or a function")
+        else:
+            func = val
+
+        if not isinstance(func(), int):
+            raise ValueError("Num facts per iteration must return an integer")
+        self._num_facts_per_iter = func
 
 
 class DummyStarSchema:
@@ -77,7 +102,7 @@ class DummyStarSchema:
     ##################################################################
 
     def __init__(self, entity_list):
-        self.entities: Dict[Entity] = {
+        self.entity_dict: Dict[Entity] = {
             entity.name: entity for entity in entity_list
         }
         self.dag = self.generate_dag()
@@ -94,16 +119,17 @@ class DummyStarSchema:
         dag = networkx.DiGraph()
 
         # Add our nodes
-        for entity in self.entities.values():
+        for entity in self.entity_dict.values():
             for relation in entity.relations:
                 # entity is child of relation
-                dag.add_edge(self.entities[relation], entity)
-            if entity.multi:
-                dag.add_edge(self.entities[entity.multi.relation], entity)
+                try:
+                    dag.add_edge(self.entity_dict[relation.name], entity)
+                except KeyError as e:
+                    raise KeyError("Unable to find relation: '{}'".format(str(e)))
             dag.add_node(entity)  # Just in case there's a standalone
 
         if not networkx.is_directed_acyclic_graph(dag):
-            raise ValueError("Circular dependencies")
+            raise ValueError("Circular dependencies in relations")
 
         return dag
 
@@ -113,40 +139,36 @@ class DummyStarSchema:
 
     def generate_entity_data(self, entity, datasets):
         ents = {}
+        relation_id_lists = {rel.id: list(datasets[rel.name].keys()) for rel in entity.relations}
 
-        if entity.multi:
-            keys = list(datasets[entity.multi.relation].keys())
+        for i in range(entity.num_iterations):
+            base = {}
 
-        for i in range(entity.num_ents):
-            while True:
-                uid = str(uuid.uuid4())[-12:]  # 36 ** 12 is max num entities...
-                if uid not in ents:
-                    break
-            ents[uid] = []
+            for relation in entity.one_to_many_relations:  # These will be the same per fact per instance
+                base[relation.id] = random.sample(relation_id_lists[relation.id], 1)[0]
 
-            base = {entity.name + "_id": uid}
-            for relation in entity.relations:
-                field_name = relation + "_id"
-                base[field_name] = random.sample(list(datasets[relation].keys()), 1)[0]
-
-            if entity.multi:
-                multi_count = entity.multi.fuzz()
-                if entity.multi.unique:
-                    mid = random.sample(keys, multi_count)
+            num_facts = entity.num_facts_per_iter()  # Defaults to uniform 1
+            many_to_many_ids = {}
+            for rel in entity.many_to_many_relations:  # These will be the same per fact
+                if rel.unique:
+                    many_to_many_ids[rel.id] = random.sample(relation_id_lists[rel.id], num_facts)
                 else:
-                    mid = [random.sample(keys, 1)[0] for i in multi_count]
+                    many_to_many_ids[rel.id] = [random.sample(relation_id_lists[rel.id], 1)[0]
+                                                for i in range(num_facts)]
 
-                for i in range(multi_count):
-                    base_copy = copy.deepcopy(base)
-                    base_copy[entity.multi.relation + "_id"] = mid[i]
+            for i in range(num_facts):
+                while True:  # Get a unique id for this instance
+                    uid = str(uuid.uuid4())[-12:]  # 36 ** 12 is max num entities...
+                    if uid not in ents:
+                        break
+                inst = {entity.id: uid}
+                inst.update(base)
 
-                    data = entity.gen()
-                    base_copy.update(data)
-                    ents[uid].append(base_copy)
-            else:
-                data = entity.gen()
-                base.update(data)
-                ents[uid].append(base)
+                for relation in entity.many_to_many_relations:
+                    inst[relation.id] = many_to_many_ids[relation.id].pop(0)
+
+                inst.update(entity.gen())
+                ents[uid] = inst
 
         return ents
 
@@ -169,15 +191,13 @@ class DummyStarSchema:
         for name, uids in self.datasets.items():
             with open((folder + '/' if folder else '') + name + ".csv", "w+") as f:
                 wr = csv.writer(f)
-                # WRITE HEADERS
-                first_uid = list(uids.values())[0]
-                to_write = list(first_uid[0].keys())
-                wr.writerow(to_write)
+                headers = True
+                for row in uids.values():
+                    if headers:
+                        headers = False
+                        wr.writerow(list(row.keys()))
 
-                # WRITE VALUES
-                for rows in uids.values():
-                    to_write = [row.values() for row in rows]
-                    wr.writerows(to_write)
+                    wr.writerow(list(row.values()))
 
     def to_json(self, folder):
         if folder and not os.path.exists(folder):
@@ -185,5 +205,4 @@ class DummyStarSchema:
 
         for name, uids in self.datasets.items():
             with open((folder + '/' if folder else '') + name + ".json", "w+") as f:
-                json_list = [row for rows in uids.values() for row in rows]
-                json.dump(json_list, f, default=json_serial)
+                json.dump(list(uids.values()), f, default=json_serial)

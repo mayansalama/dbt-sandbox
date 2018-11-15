@@ -51,50 +51,53 @@ def generate_order_item():
     }
 
 
-def get_num_products(num_ents, scale_factor):
+def get_num_products(num_iterations, scale_factor):
     return random.randint(
-        min(random.randint(50, 100), int(num_ents / scale_factor - num_ents / scale_factor / 2)),
-        min(random.randint(150, 200), int(num_ents / scale_factor + num_ents / scale_factor / 2))
+        min(random.randint(50, 100), int(num_iterations / scale_factor - num_iterations / scale_factor / 2)),
+        min(random.randint(150, 200), int(num_iterations / scale_factor + num_iterations / scale_factor / 2))
     )
 
 
-if __name__ == "__main__":
-    arg_list = sys.argv
-    arg_dict = {arg_list[i]: arg_list[i + 1] for i in range(1, len(arg_list), 2)}
+def main():
+    num_iterations = 30
+    scale_factor = 4
+    folder = 'sample-data'
 
-    num_ents = int(arg_dict.get("--num-entities", 30))
-    if num_ents > 12 ** 36:
-        raise ValueError("Too many entities: this will result in id collisions")
-
-    folder = arg_dict.get("--folder", "sample-data")
-    scale_factor = arg_dict.get("--scale-factor", 4)
+    num_products = get_num_products(num_iterations, scale_factor)
 
     schema = [
+        #  DIMS
         {
-            'name': 'customer',
-            'generator_function': generate_customer,
-            'num_ents': num_ents
+            'name': 'customer',  # the name of the entity/table
+            'generator_function': generate_customer,  # function that defines entity
+            'num_iterations': num_iterations  # How many times to run that function
         },
         {
             'name': 'product',
             'generator_function': generate_product,
-            'num_ents': get_num_products(num_ents, scale_factor)
+            'num_iterations': num_products
         },
+        #  FACTS
         {
             'name': 'order',
             'generator_function': generate_order,
-            'num_ents': num_ents * scale_factor,
-            'relations': ['customer']
+            'num_iterations': num_iterations * scale_factor,
+            'relations': [{'name': 'customer'}]  # Entity relations (by default many to one)
         },
         {
             'name': 'order_item',
             'generator_function': generate_order_item,
-            'num_ents': num_ents * scale_factor,
-            'relations': ['order'],
-            'one_to_many': {'relation': 'product', 'fuzz': lambda: random.randint(1, 3), "unique": True}
+            'num_iterations': num_iterations * scale_factor,
+            'num_facts_per_iter': lambda: random.randint(1, 3),  # Number of facts per iteration (e.g. 3 items 1 order)
+            'relations': [{'name':'order'},
+                          {'name': 'product', 'type': 'many_to_many', 'unique': True}]  # Each order item has a single product
         }
     ]
 
     dummy_data = DummyStarSchema.initiate_from_entity_list(schema)
     dummy_data.to_json(folder)
     print("Done")
+
+
+if __name__ == "__main__":
+    main()
