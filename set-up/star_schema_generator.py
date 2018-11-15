@@ -4,6 +4,7 @@ import random
 import csv
 import json
 import pickle
+import inspect
 from datetime import datetime, date
 from typing import Dict
 
@@ -77,6 +78,20 @@ class Entity:
     @property
     def many_to_many_relations(self):
         return [rel for rel in self.relations if rel.type == "many_to_many"]
+
+    @property
+    def gen(self):
+        if inspect.isgenerator(self._gen):
+            return lambda: next(self._gen)
+        return self._gen
+
+    @gen.setter
+    def gen(self, val):
+        test = val()
+        if inspect.isgenerator(test):
+            self._gen = test
+        else:
+            self._gen = val
 
     @property
     def num_facts_per_iter(self):

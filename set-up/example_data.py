@@ -1,16 +1,25 @@
 import sys
 import random
 import faker
+import datetime
 
 from star_schema_generator import DummyStarSchema
 
+num_iterations = 3000
+scale_factor = 4
+folder = 'sample-data'
+
 fake = faker.Faker()
+low_date = datetime.datetime(2018, 11, 1)
+high_date = datetime.datetime(2018, 12, 1)
+num_days = (high_date - low_date).days
+num_currencies = 5
 
 """
 Usage: python generate_dummy_date.py
 
 Generates a some sample star schema entities for a given number of rows in a specified file. The size of the data 
-will be proportional to the number of custs and the specified scale_factor.
+will be proportional to the number of iterations and the specified scale_factor.
 """
 
 
@@ -40,14 +49,34 @@ def generate_product():
 
 def generate_order():
     return {
-        'order_time': fake.date_time_this_month()
+        'order_time': fake.date_time_between(low_date, high_date)
     }
 
 
 def generate_order_item():
     return {
-        "ammount": random.weibullvariate(1, 0.5) * 100,
+        "ammount": random.weibullvariate(1, 0.5) * 100
+    }
+
+
+def generate_days():
+    cur_day = low_date
+    while True:
+        yield {
+            "day_value": cur_day
+        }
+        cur_day += datetime.timedelta(days=1)
+
+
+def generate_currency():
+    return {
         "currency": fake.currency()[0]
+    }
+
+
+def generate_currency_conv():
+    return {
+        "to_aud": random.weibullvariate(1, 0.5)
     }
 
 
@@ -59,10 +88,6 @@ def get_num_products(num_iterations, scale_factor):
 
 
 def main():
-    num_iterations = 3000
-    scale_factor = 4
-    folder = 'sample-data'
-
     num_products = get_num_products(num_iterations, scale_factor)
 
     schema = [
@@ -77,6 +102,16 @@ def main():
             'generator_function': generate_product,
             'num_iterations': num_products
         },
+        {
+            'name': 'currency',
+            'generator_function': generate_currency,
+            'num_iterations': 10
+        },
+        {
+            'name': 'days',
+            'generator_function': generate_days,
+            'num_iterations': num_days
+        },
         #  FACTS
         {
             'name': 'orders',
@@ -90,11 +125,20 @@ def main():
             'num_iterations': num_iterations * scale_factor,
             'num_facts_per_iter': lambda: random.randint(1, 3),  # Number of facts per iteration (e.g. 3 items 1 order)
             'relations': [{'name': 'orders'},
+                          {'name': 'currency'},
                           {'name': 'product', 'type': 'many_to_many', 'unique': True}]
             # Each iteration has the same entity link for one_to_many relations (e.g. one order_id per order_item)
             # For many_to_many this link is sampled - if unique then it is sampled without replacement.
             # In this example an order has multiple order items, each linked to a unique product within that order
             # If an order could have multiple of the same product then unique would be false
+        },
+        {
+            'name': 'currency_conversion',
+            'generator_function': generate_currency_conv,
+            'num_iterations': num_currencies,
+            'num_facts_per_iter': num_days,  # We get one record per currency per day
+            'relations': [{'name': 'currency'},
+                          {'name': 'days', 'type': 'many_to_many', 'unique': True}]
         }
     ]
 
