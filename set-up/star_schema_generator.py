@@ -3,7 +3,7 @@ import uuid
 import random
 import csv
 import json
-import copy
+import pickle
 from datetime import datetime, date
 from typing import Dict
 
@@ -65,7 +65,10 @@ class Entity:
 
     @relations.setter
     def relations(self, relations):
-        self._relations = [Relation.from_dict(rel) for rel in relations]
+        if relations and isinstance(relations, list):
+            self._relations = [Relation.from_dict(rel) if isinstance(rel, dict) else rel for rel in relations]
+        else:
+            self._relations = []
 
     @property
     def one_to_many_relations(self):
@@ -107,7 +110,7 @@ class DummyStarSchema:
         }
         self.dag = self.generate_dag()
         self.datasets = None
-        self.instantiate()
+        self.generate()
 
     @staticmethod
     def initiate_from_entity_list(list):
@@ -172,7 +175,7 @@ class DummyStarSchema:
 
         return ents
 
-    def instantiate(self):
+    def generate(self):
         datasets = {}
 
         for entity in networkx.topological_sort(self.dag):
@@ -206,3 +209,15 @@ class DummyStarSchema:
         for name, uids in self.datasets.items():
             with open((folder + '/' if folder else '') + name + ".json", "w+") as f:
                 json.dump(list(uids.values()), f, default=json_serial)
+
+    def to_schemas(self, folder):
+        if folder and not os.path.exists(folder):
+            os.makedirs(folder)
+
+        for name, uids in self.datasets.items():
+            with open((folder + '/' if folder else '') + name + ".schema", "wb") as f:
+                first_row = next(iter(uids.values()))
+                schema = {}
+                for name, val in first_row.items():
+                    schema[name] = type(val)
+                pickle.dump(schema, f)

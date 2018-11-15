@@ -1,2 +1,3 @@
 faker
 networkx
+psycopg2

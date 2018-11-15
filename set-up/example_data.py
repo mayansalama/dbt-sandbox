@@ -2,12 +2,12 @@ import sys
 import random
 import faker
 
-from dummy_star_schema import DummyStarSchema
+from star_schema_generator import DummyStarSchema
 
 fake = faker.Faker()
 
 """
-Usage: python generate_dummy_date.py --num-custs 30 --folder sample-data --scale-factor 4
+Usage: python generate_dummy_date.py
 
 Generates a some sample star schema entities for a given number of rows in a specified file. The size of the data 
 will be proportional to the number of custs and the specified scale_factor.
@@ -30,11 +30,11 @@ def generate_customer():
 
 
 def generate_product():
-    name = fake.bs()
+    name = fake.bs().split(' ')[-1]
     desc = fake.paragraph()
     return {
         "name": name,
-        "desc": desc
+        "long_desc": desc
     }
 
 
@@ -59,7 +59,7 @@ def get_num_products(num_iterations, scale_factor):
 
 
 def main():
-    num_iterations = 30
+    num_iterations = 3000
     scale_factor = 4
     folder = 'sample-data'
 
@@ -79,7 +79,7 @@ def main():
         },
         #  FACTS
         {
-            'name': 'order',
+            'name': 'orders',
             'generator_function': generate_order,
             'num_iterations': num_iterations * scale_factor,
             'relations': [{'name': 'customer'}]  # Entity relations (by default many to one)
@@ -89,13 +89,18 @@ def main():
             'generator_function': generate_order_item,
             'num_iterations': num_iterations * scale_factor,
             'num_facts_per_iter': lambda: random.randint(1, 3),  # Number of facts per iteration (e.g. 3 items 1 order)
-            'relations': [{'name':'order'},
-                          {'name': 'product', 'type': 'many_to_many', 'unique': True}]  # Each order item has a single product
+            'relations': [{'name': 'orders'},
+                          {'name': 'product', 'type': 'many_to_many', 'unique': True}]
+            # Each iteration has the same entity link for one_to_many relations (e.g. one order_id per order_item)
+            # For many_to_many this link is sampled - if unique then it is sampled without replacement.
+            # In this example an order has multiple order items, each linked to a unique product within that order
+            # If an order could have multiple of the same product then unique would be false
         }
     ]
 
     dummy_data = DummyStarSchema.initiate_from_entity_list(schema)
-    dummy_data.to_json(folder)
+    dummy_data.to_csv(folder)
+    dummy_data.to_schemas(folder)
     print("Done")
 
 
