@@ -5,7 +5,7 @@ import datetime
 
 from star_schema_generator import DummyStarSchema
 
-num_iterations = 3000
+num_iterations = 100000
 scale_factor = 4
 folder = 'sample-data'
 
@@ -59,25 +59,34 @@ def generate_order_item():
     }
 
 
-def generate_days():
-    cur_day = low_date
-    while True:
-        yield {
-            "day_value": cur_day
-        }
-        cur_day += datetime.timedelta(days=1)
-
-
 def generate_currency():
-    return {
-        "currency": fake.currency()[0]
+    curs = ["AUD"]
+    yield {
+        "currency": "AUD"
     }
+    while True:
+        new_cur = fake.currency()[0]
+        if new_cur not in curs:
+            curs.append(new_cur)
+            yield {
+                "currency": new_cur
+            }
 
 
 def generate_currency_conv():
-    return {
-        "to_aud": random.weibullvariate(1, 0.5)
-    }
+    def daterange(start_date, end_date):
+        for n in range(int((end_date - start_date).days)):
+            yield start_date + datetime.timedelta(n)
+
+    while True:
+        root_value = random.weibullvariate(1, 3)
+
+        for cur_day in daterange(low_date, high_date):
+            yield {
+                "day_value": cur_day,
+                "to_aud": root_value
+            }
+            root_value += random.gauss(0, root_value / 100)
 
 
 def get_num_products(num_iterations, scale_factor):
@@ -105,40 +114,37 @@ def main():
         {
             'name': 'currency',
             'generator_function': generate_currency,
-            'num_iterations': 10
-        },
-        {
-            'name': 'days',
-            'generator_function': generate_days,
-            'num_iterations': num_days
+            'num_iterations': num_currencies
         },
         #  FACTS
         {
             'name': 'orders',
             'generator_function': generate_order,
             'num_iterations': num_iterations * scale_factor,
-            'relations': [{'name': 'customer'}]  # Entity relations (by default many to one)
+            'relations': [{'name': 'customer'},
+                          {'name': 'currency'}]
         },
         {
             'name': 'order_item',
             'generator_function': generate_order_item,
             'num_iterations': num_iterations * scale_factor,
             'num_facts_per_iter': lambda: random.randint(1, 3),  # Number of facts per iteration (e.g. 3 items 1 order)
-            'relations': [{'name': 'orders'},
-                          {'name': 'currency'},
+            'relations': [{'name': 'orders', 'unique': True},
                           {'name': 'product', 'type': 'many_to_many', 'unique': True}]
             # Each iteration has the same entity link for one_to_many relations (e.g. one order_id per order_item)
-            # For many_to_many this link is sampled - if unique then it is sampled without replacement.
-            # In this example an order has multiple order items, each linked to a unique product within that order
-            # If an order could have multiple of the same product then unique would be false
+            # For many_to_many this link is sampled - if unique_per_fact then it is sampled without replacement.
+            # In this example an order has multiple order items, each linked to a unique_per_fact product within that order
+            # If an order could have multiple of the same product then unique_per_fact would be false
         },
         {
             'name': 'currency_conversion',
             'generator_function': generate_currency_conv,
             'num_iterations': num_currencies,
             'num_facts_per_iter': num_days,  # We get one record per currency per day
-            'relations': [{'name': 'currency'},
-                          {'name': 'days', 'type': 'many_to_many', 'unique': True}]
+            'relations': [{'name': 'currency', 'unique': True}]
+            # Here the default type is one_to_many - in this case there will be a unique value for each iteration
+            # Sampled from the source table - note this will fail if there are more iterations that values in
+            # The original table.
         }
     ]
 

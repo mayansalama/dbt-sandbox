@@ -11,6 +11,9 @@ from typing import Dict
 import networkx
 
 
+NUM_DOTS = 20
+
+
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
 
@@ -79,23 +82,35 @@ class Entity:
     def many_to_many_relations(self):
         return [rel for rel in self.relations if rel.type == "many_to_many"]
 
+    ############################################################################
+    # Generator Handlers
+    ############################################################################
+
+    @staticmethod
+    def _check_if_gen(val):
+        test = val()
+        if inspect.isgenerator(test):
+            return test
+        else:
+            return val
+
+    @staticmethod
+    def _return_executable(val):
+        if inspect.isgenerator(val):
+            return lambda: next(val)
+        return val
+
     @property
     def gen(self):
-        if inspect.isgenerator(self._gen):
-            return lambda: next(self._gen)
-        return self._gen
+        return self._return_executable(self._gen)
 
     @gen.setter
     def gen(self, val):
-        test = val()
-        if inspect.isgenerator(test):
-            self._gen = test
-        else:
-            self._gen = val
+        self._gen = self._check_if_gen(val)
 
     @property
     def num_facts_per_iter(self):
-        return self._num_facts_per_iter
+        return self._return_executable(self._num_facts_per_iter)
 
     @num_facts_per_iter.setter
     def num_facts_per_iter(self, val):
@@ -106,7 +121,7 @@ class Entity:
             else:
                 raise ValueError("Num facts per iteration must be either numeric or a function")
         else:
-            func = val
+            func = self._check_if_gen(val)
 
         if not isinstance(func(), int):
             raise ValueError("Num facts per iteration must return an integer")
@@ -156,14 +171,26 @@ class DummyStarSchema:
     ##################################################################
 
     def generate_entity_data(self, entity, datasets):
+        milestones = [int(i * entity.num_iterations / NUM_DOTS) for i in range(1, NUM_DOTS + 1)]
+
         ents = {}
         relation_id_lists = {rel.id: list(datasets[rel.name].keys()) for rel in entity.relations}
 
-        for i in range(entity.num_iterations):
-            base = {}
+        one_to_ones = {}
+        for relation in entity.one_to_many_relations:  # Same per fact per instance, but uniquely sampled
+            if relation.unique:
+                one_to_ones[relation.id] = random.sample(relation_id_lists[relation.id], entity.num_iterations)
 
+        for i in range(entity.num_iterations):
+            for k in [mile for mile in milestones if mile == i]:
+                print(".".format(entity.name), end="", flush=True)
+
+            base = {}
             for relation in entity.one_to_many_relations:  # These will be the same per fact per instance
-                base[relation.id] = random.sample(relation_id_lists[relation.id], 1)[0]
+                if relation.unique:
+                    base[relation.id] = one_to_ones[relation.id][i]
+                else:
+                    base[relation.id] = random.sample(relation_id_lists[relation.id], 1)[0]  # Not unique
 
             num_facts = entity.num_facts_per_iter()  # Defaults to uniform 1
             many_to_many_ids = {}
@@ -174,7 +201,7 @@ class DummyStarSchema:
                     many_to_many_ids[rel.id] = [random.sample(relation_id_lists[rel.id], 1)[0]
                                                 for i in range(num_facts)]
 
-            for i in range(num_facts):
+            for j in range(num_facts):
                 while True:  # Get a unique id for this instance
                     uid = str(uuid.uuid4())[-12:]  # 36 ** 12 is max num entities...
                     if uid not in ents:
@@ -188,12 +215,16 @@ class DummyStarSchema:
                 inst.update(entity.gen())
                 ents[uid] = inst
 
+        print(" DONE")
         return ents
 
     def generate(self):
         datasets = {}
+        max_name_length = len(max(self.entity_dict.keys(), key=len))
 
         for entity in networkx.topological_sort(self.dag):
+            print("Generating entity {}{}  ".format(entity.name, ' ' * (max_name_length - len(entity.name))),
+                  end="", flush=True)
             datasets[entity.name] = self.generate_entity_data(entity, datasets)
 
         self.datasets = datasets
