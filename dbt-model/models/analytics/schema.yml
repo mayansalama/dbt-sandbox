@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: order_items_joined
+    columns:
+      - name: order_item_id
+        tests:
+          - unique
+          - not_null
+      - name: orders_id
+        tests:
+          - not_null
+          - relationships:
+              to: source.orders
+              field: orders_id

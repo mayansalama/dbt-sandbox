@@ -31,18 +31,18 @@ def seed(data_folder, conn_string):
     tables = {os.path.basename(f).split('.')[0] for f in os.listdir(data_folder)}
     for table in tables:
         # Table setup
-        sql('DROP TABLE IF EXISTS {}'.format(table))
+        sql('DROP TABLE IF EXISTS source.{} CASCADE'.format(table))
         with open(os.path.join(data_folder, table + ".schema"), "rb") as f:
             schema = pickle.load(f)
         postgres_schema = ["{} {}".format(col, pytype2psql(dtype)) for col, dtype in schema.items()]
         postgres_schema[0] += " PRIMARY KEY"
-        sql('CREATE TABLE {}({})'.format(table, ', '.join(postgres_schema)))
+        sql('CREATE TABLE source.{}({})'.format(table, ', '.join(postgres_schema)))
 
         # Load data
         with open(os.path.join(data_folder, table + ".csv"), 'r') as f:
             next(f)  # Skip the header row.
             print("Copying data...")
-            cur.copy_expert("COPY {} FROM STDIN WITH (FORMAT CSV)".format(table), f)
+            cur.copy_expert("COPY source.{} FROM STDIN WITH (FORMAT CSV)".format(table), f)
 
     conn.commit()
 
