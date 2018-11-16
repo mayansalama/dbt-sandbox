@@ -1,4 +1,3 @@
-{{config(materialized = 'ephemeral')}}
 
 SELECT a.currency_conversion_id
       ,a.currency_id
