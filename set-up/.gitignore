@@ -1,8 +1,4 @@
-__pycache__
-__pycache__/*
-.idea
-.idea/*
+__pycache__/
+.idea/
 *.pyc
-
-sample-data
-sample-data/*
+sample-data/
