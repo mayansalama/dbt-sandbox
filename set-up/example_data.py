@@ -3,7 +3,7 @@ import random
 import faker
 import datetime
 
-from star_schema_generator import DummyStarSchema
+from labgrownsheets.model import StarSchemaModel
 
 num_iterations = 100000
 scale_factor = 4
@@ -101,32 +101,32 @@ def main():
 
     schema = [
         #  DIMS
-        {
+        ('naive', {
             'name': 'customer',  # the name of the entity/table
-            'generator_function': generate_customer,  # function that defines entity
+            'entity_generator': generate_customer,  # function that defines entity
             'num_iterations': num_iterations  # How many times to run that function
-        },
-        {
+        }),
+        ('naive', {
             'name': 'product',
-            'generator_function': generate_product,
+            'entity_generator': generate_product,
             'num_iterations': num_products
-        },
-        {
+        }),
+        ('naive', {
             'name': 'currency',
-            'generator_function': generate_currency,
+            'entity_generator': generate_currency,
             'num_iterations': num_currencies
-        },
+        }),
         #  FACTS
-        {
+        ('naive', {
             'name': 'orders',
-            'generator_function': generate_order,
+            'entity_generator': generate_order,
             'num_iterations': num_iterations * scale_factor,
             'relations': [{'name': 'customer'},
                           {'name': 'currency'}]
-        },
-        {
+        }),
+        ('naive', {
             'name': 'order_item',
-            'generator_function': generate_order_item,
+            'entity_generator': generate_order_item,
             'num_iterations': num_iterations * scale_factor,
             'num_facts_per_iter': lambda: random.randint(1, 3),  # Number of facts per iteration (e.g. 3 items 1 order)
             'relations': [{'name': 'orders', 'unique': True},
@@ -135,20 +135,21 @@ def main():
             # For many_to_many this link is sampled - if unique_per_fact then it is sampled without replacement.
             # In this example an order has multiple order items, each linked to a unique_per_fact product within that order
             # If an order could have multiple of the same product then unique_per_fact would be false
-        },
-        {
+        }),
+        ('naive', {
             'name': 'currency_conversion',
-            'generator_function': generate_currency_conv,
+            'entity_generator': generate_currency_conv,
             'num_iterations': num_currencies,
             'num_facts_per_iter': num_days,  # We get one record per currency per day
             'relations': [{'name': 'currency', 'unique': True}]
             # Here the default type is one_to_many - in this case there will be a unique value for each iteration
             # Sampled from the source table - note this will fail if there are more iterations that values in
             # The original table.
-        }
+        })
     ]
 
-    dummy_data = DummyStarSchema.initiate_from_entity_list(schema)
+    dummy_data = StarSchemaModel.from_list(schema)
+    dummy_data.generate_all_datasets(print_progress=True)
     dummy_data.to_csv(folder)
     dummy_data.to_schemas(folder)
     print("Done")

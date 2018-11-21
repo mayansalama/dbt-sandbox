@@ -9,8 +9,8 @@ one offs.
 ```bash
 pip install -r requirements.txt
 python example_data.py
-sh start_database.sh  # Only if running locally 
-python seed_database.py
+sh start_database.sh  # Only if running locally - will need to provide password
+python seed_database.py  
 ```
 
 Then point dbt at local host with admin^2 credentials. 
@@ -20,15 +20,6 @@ Spicy doco is reading the comments...
 #### Example Data
 Creates a simple star schema dataset to test against. Size of the
 dataset is modified via constants in Script.
-
-#### Star Schema Generator
-Supply a schema definition to generate sample data, with linked
-entities in fact and dim tables.
-
-To make:
-- csv: to_csv
-- json: to_json
-- pickled schema: to_schema (see seed_database for usage)
 
 #### Start Postgres
 Script to initiate postgresql database locally.

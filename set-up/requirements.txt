@@ -1,3 +1,4 @@
 faker
 networkx
 psycopg2
+git+https://github.com/mayansalama/lab-grown-sheets.git
