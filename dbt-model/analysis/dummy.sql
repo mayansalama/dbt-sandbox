@@ -1,0 +1,1 @@
+SELECT * FROM dbtsandbox_dbt.customer_orders_rolled_up

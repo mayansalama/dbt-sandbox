@@ -1,4 +1,5 @@
 import os
+import sys
 import pickle
 import datetime
 
@@ -35,8 +36,14 @@ def seed(data_folder, conn_string):
         with open(os.path.join(data_folder, table + ".schema"), "rb") as f:
             schema = pickle.load(f)
         postgres_schema = ["{} {}".format(col, pytype2psql(dtype)) for col, dtype in schema.items()]
-        postgres_schema[0] += " PRIMARY KEY"
-        sql('CREATE TABLE source.{}({})'.format(table, ', '.join(postgres_schema)))
+
+        if table == "customer":  # Scd type 2 special case - should build this into labgrownsheets via schema serialisation
+            postgres_schema.append("PRIMARY KEY(customer_id,valid_from_timestamp,valid_to_timestamp)")
+        else:
+            postgres_schema[0] += " PRIMARY KEY"
+
+        _sql = 'CREATE TABLE source.{}({})'.format(table, ', '.join(postgres_schema))
+        sql(_sql)
 
         # Load data
         with open(os.path.join(data_folder, table + ".csv"), 'r') as f:
@@ -48,6 +55,10 @@ def seed(data_folder, conn_string):
 
 
 if __name__ == "__main__":
-    conn_string = "host=localhost dbname=dbtsandbox user=admin"
+    args = sys.argv
+    if len(args) == 1:
+        conn_string = "host=localhost port=5432 dbname=dbtsandbox user=admin"
+    else:
+        conn_string = args[1]
     data_folder = "sample-data"
     seed(data_folder, conn_string)

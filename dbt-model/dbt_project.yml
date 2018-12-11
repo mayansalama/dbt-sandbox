@@ -2,7 +2,7 @@
 # Name your package! Package names should contain only lowercase characters
 # and underscores. A good package name should reflect your organization's
 # name or the intended use of these models
-name: 'dbd_sandbox'
+name: 'dbt_sandbox'
 version: '1.0'
 
 # This setting configures which "profile" dbt uses for this project. Profiles contain
@@ -32,4 +32,12 @@ clean-targets:         # directories to be removed by `dbt clean`
 models:
   dbt_sandbox:
       analytics:
+          schema: dbt
           materialized: view
+          vars:
+              "base.currency": '"source"."currency"'
+              "base.currency_conversion": '"source"."currency_conversion"'
+              "base.product": '"source"."product"'
+              "base.customer": '"source"."customer"'
+              "base.orders": '"source"."orders"'
+              "base.order_item": '"source"."order_item"'

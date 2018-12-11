@@ -47,9 +47,17 @@ def generate_product():
     }
 
 
-def generate_order():
+def generate_order(*args, **kwargs):
+    #  If args are supported then arg[0] will be the full datasets dictionary
+    #  Kwargs will have 'inst': {dict of relations and ids}
+    if not kwargs:  # Note that functions are tested to see if they compile, so the first run through will be null
+        ld = low_date
+        hd = high_date
+    else:  # This way we never get an order created before a customer is
+        ld = args[0]['customer'][kwargs['customer_id']][0]['valid_from_timestamp']
+        hd = high_date
     return {
-        'order_time': fake.date_time_between(low_date, high_date)
+        'order_time': fake.date_time_between(ld, hd)
     }
 
 
@@ -101,10 +109,12 @@ def main():
 
     schema = [
         #  DIMS
-        ('naive', {
-            'name': 'customer',  # the name of the entity/table
-            'entity_generator': generate_customer,  # function that defines entity
-            'num_iterations': num_iterations  # How many times to run that function
+        ('naive_type2_scd', {
+            'name': 'customer',
+            'entity_generator': generate_customer,
+            'num_iterations': num_iterations,
+            'mutation_rate': 0.1,  # Will update mutate cols 10% of the time
+            'mutating_cols': ['address']  # Only address will update
         }),
         ('naive', {
             'name': 'product',
@@ -128,7 +138,8 @@ def main():
             'name': 'order_item',
             'entity_generator': generate_order_item,
             'num_iterations': num_iterations * scale_factor,
-            'num_facts_per_iter': lambda: random.randint(1, 3),  # Number of facts per iteration (e.g. 3 items 1 order)
+            'num_entities_per_iteration': lambda: random.randint(1, 3),
+        # Number of facts per iteration (e.g. 3 items 1 order)
             'relations': [{'name': 'orders', 'unique': True},
                           {'name': 'product', 'type': 'many_to_many', 'unique': True}]
             # Each iteration has the same entity link for one_to_many relations (e.g. one order_id per order_item)
@@ -140,7 +151,7 @@ def main():
             'name': 'currency_conversion',
             'entity_generator': generate_currency_conv,
             'num_iterations': num_currencies,
-            'num_facts_per_iter': num_days,  # We get one record per currency per day
+            'num_entities_per_iteration': num_days,  # We get one record per currency per day
             'relations': [{'name': 'currency', 'unique': True}]
             # Here the default type is one_to_many - in this case there will be a unique value for each iteration
             # Sampled from the source table - note this will fail if there are more iterations that values in
