@@ -1,17 +1,19 @@
+import os
 import sys
 import random
 import faker
 import datetime
 
-from labgrownsheets.model import StarSchemaModel
+from labgrownsheets.model import StarSchemaModel, PostgresSchemaAdapter, BigquerySchemaAdapter
 
-num_iterations = 100000
+num_iterations = 1000
 scale_factor = 4
-folder = 'sample-data'
+data_path = os.path.join('data')
+schema_path = os.path.join('schema')
 
 fake = faker.Faker()
-low_date = datetime.datetime(2018, 11, 1)
-high_date = datetime.datetime(2018, 12, 1)
+low_date = datetime.datetime(2018, 1, 1)
+high_date = datetime.datetime(2018, 12, 31)
 num_days = (high_date - low_date).days
 num_currencies = 5
 
@@ -111,6 +113,8 @@ def main():
         #  DIMS
         ('naive_type2_scd', {
             'name': 'customer',
+            'min_valid_from': low_date,
+            'max_valid_from': high_date,
             'entity_generator': generate_customer,
             'num_iterations': num_iterations,
             'mutation_rate': 0.1,  # Will update mutate cols 10% of the time
@@ -161,10 +165,22 @@ def main():
 
     dummy_data = StarSchemaModel.from_list(schema)
     dummy_data.generate_all_datasets(print_progress=True)
-    dummy_data.to_csv(folder)
-    dummy_data.to_schemas(folder)
+    dummy_data.to_csv(data_path)
+
+    padapter = PostgresSchemaAdapter(dummy_data)
+    padapter.to_dbt_schema(path=schema_path)
+
+    bqadapter = BigquerySchemaAdapter(dummy_data)
+    bqadapter.to_dbt_schema(path=schema_path)
+
     print("Done")
 
 
 if __name__ == "__main__":
+    args = sys.argv
+    if len(args) == 2:
+        num_iterations = int(args[1])
+    elif len(args) > 2:
+        raise ValueError("Unable to process input args")
+
     main()

@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 sample-data/
 cloud_sql_proxy
+dbt_project.yml
+logs/
+schema/
+data/
+dbt_modules/

@@ -1,33 +1,22 @@
 # DBT SetUp
 
-Collection of utilities to generate data and load into my-sql
-database running locally. Could centralise constants and 
-parameterise example_data and seed_database but they're just
-one offs.
+Collection of utilities to generate relational data and load to local
+and remote postgres, as well as bigquery. Note that this generates
+dynamic dbt_project.yml files, hence why it has been isolated
+from the original table.
+
+This will seed:
+1. Local postgres with ~20k records
+1. Remote postgres with ~200k records
+1. BigQuery with ~2m records.
 
 ### how2run
 ```bash
 pip install -r requirements.txt
-python example_data.py
-sh start_database.sh  # Only if running locally - will need to provide password
-python seed_database.py  
+sh seed_targets.sh
 ```
 
-Then point dbt at local host with admin^2 credentials. 
-
-### Mild Doco
-Spicy doco is reading the comments...
-#### Example Data
-Creates a simple star schema dataset to test against. Size of the
-dataset is modified via constants in Script.
-
-#### Start Postgres
-Script to initiate postgresql database locally.
-
-#### Seed Postgres
-Loads all files from sample-data directory. Assumes:
-
-- Table name is same as file basename
-- For each file basename there is a corresponding `.csv` and `.schema` file.
-
-Change the conn_string to hit a remote postgres instance.
+### Example Data
+This utilises lab-grown-sheets to generate sample data to seed 
+into the databases. For documentation on how to configure or 
+modify this see [here](git+https://github.com/mayansalama/lab-grown-sheets.git) 

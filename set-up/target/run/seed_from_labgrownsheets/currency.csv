@@ -1,0 +1,8 @@
+
+    truncate table "source"."currency";
+    -- dbt seed --
+    
+            insert into "source"."currency" (currency_id, currency) values
+            (%s,%s),(%s,%s),(%s,%s),(%s,%s),(%s,%s)
+        
+  
