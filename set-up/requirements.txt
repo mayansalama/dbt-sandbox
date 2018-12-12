@@ -2,4 +2,5 @@ faker
 networkx
 psycopg2
 google-cloud-bigquery
+dbt
 git+https://github.com/mayansalama/lab-grown-sheets.git
