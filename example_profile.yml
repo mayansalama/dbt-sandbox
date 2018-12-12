@@ -1,0 +1,31 @@
+default:
+  outputs:
+    dev:
+      type: postgres
+      threads: 1
+      host: 127.0.0.1
+      port: 5432
+      user: admin
+      pass: admin
+      dbname: dbtsandbox
+      schema: dbtsandbox
+    psql:
+      type: postgres
+      threads: 1
+      host: 127.0.0.1
+      port: 5433
+      user: postgres
+      pass: servian-test
+      dbname: dbtsandbox
+      schema: dbtsandbox
+    bq:
+      type: bigquery
+      project: dbt-sandbox
+      method: oauth
+      schema: dbtsandbox
+  target: dev
+
+
+config:
+  send_anonymous_usage_stats: False
+  use_colors: True
