@@ -1,6 +1,11 @@
 version: 2
 
 models:
+  - name: currency_conversions_fixed
+    columns:
+      - name: day_value
+        tests:
+          - not_null
   - name: order_items_joined
     columns:
       - name: order_item_id

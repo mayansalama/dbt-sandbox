@@ -10,6 +10,10 @@ This will seed:
 1. Remote postgres with ~200k records
 1. BigQuery with ~2m records.
 
+Note that currently dbt will infer the schema from a CSV when seeding.
+Until overwrites stop this behaviour, this can be a slow process for 
+large files.
+
 ### how2run
 ```bash
 pip install -r requirements.txt

@@ -14,5 +14,4 @@ FROM {{ source(var('base.orders')) }} o
   LEFT JOIN {{ source(var('base.order_item')) }} i on o.orders_id = i.orders_id
   LEFT JOIN {{ source(var('base.product')) }} p on i.product_id = p.product_id
   LEFT JOIN {{ ref('currency_conversions_fixed')}} cu on cu.currency_id = o.currency_id
---    and {{ date_part('day', 'cu.day_value') }} =  {{ date_part('day', 'o.order_time') }}
-     and {{ date_part('day', 'cu.day_value') }} =  {{ date_part('day', 'o.order_time') }}
+     and DATE(cu.day_value) = DATE(o.order_time)

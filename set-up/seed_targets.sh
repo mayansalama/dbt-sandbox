@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 
-echo "Seeding local postgres"
+echo "Creating local postgres data (1000 base its)"
 python example_data.py 1000
 python create_dbt_project.py psql
-dbt seed
+echo "Seeding via dbt..."
+dbt seed --full-refresh
 
-echo "Seeding remote postgres"
+echo "Creating remote postgres data (10000 base its)"
 python example_data.py 10000
 python create_dbt_project.py psql
-dbt seed --target psql
+echo "Seeding via dbt..."
+dbt seed --target psql --full-refresh
 
-echo "Seeding bigquery"
+echo "Creating bq data (100000 base its)"
 python example_data.py 100000
 python create_dbt_project.py bq
-dbt seed --target bq
+echo "Seeding via dbt..."
+dbt seed --target bq --full-refresh

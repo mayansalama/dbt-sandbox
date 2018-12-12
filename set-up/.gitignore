@@ -8,3 +8,4 @@ logs/
 schema/
 data/
 dbt_modules/
+target/
